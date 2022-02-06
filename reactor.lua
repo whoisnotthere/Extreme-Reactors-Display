@@ -1,6 +1,7 @@
 local component = require("component")
 local term = require("term")
 local computer = require("computer")
+local unicode = require("unicode")
 local gpu = component.gpu
 local screen = component.screen
 
@@ -39,6 +40,7 @@ local ME_Filter = {
 
 local raw_Data = {
 	reactor_Active = false,
+	reactor_Available = false,
 	reactor_State = "storage_Mode",
 	reactor_Casing_Temp = 0,
 	reactor_Fuel_Info = {
@@ -53,6 +55,10 @@ local raw_Data = {
 		energyCapacity = 0,
 		energyProducedLastTick = 0,
 		energyStored = 0,
+	},
+	display_Resolution = {
+		x = 0,
+		y = 0,
 	},
 	ME_Data = {},
 	ME_Yellorium_Amount = 0,
@@ -162,8 +168,33 @@ end
 
 
 
+function reactor_Availability_Changed()
+	if not raw_Data["reactor_Available"] then
+		term.clear()
+		gpu.setForeground(0xffffff)
+		gpu.setResolution(24, 8)
+
+		local reactor_Name_Position = math.floor((24 - unicode.len(display_Settings["reactor_Name"])) / 2) + 1
+		gpu.set(reactor_Name_Position, 2, display_Settings["reactor_Name"])
+		gpu.set(4, 5, "Lost communication")
+		gpu.set(7, 6, "with reactor")
+
+		computer.beep(1000, 1)
+
+	else
+		gpu.setResolution(raw_Data["display_Resolution"]["x"], raw_Data["display_Resolution"]["y"])
+	end
+end
+
+
+
 function data_Collector()
-	if component.isAvailable("br_reactor") then
+	if not raw_Data["reactor_Available"] == component.isAvailable("br_reactor") then
+		raw_Data["reactor_Available"] = component.isAvailable("br_reactor")
+		reactor_Availability_Changed()
+	end
+
+	if component.isAvailable("br_reactor") and raw_Data["reactor_Available"] then
 		raw_Data["reactor_Active"] = reactor.getActive()
 		raw_Data["reactor_Casing_Temp"] = reactor.getCasingTemperature()
 		raw_Data["reactor_Fuel_Info"] = reactor.getFuelStats()
@@ -270,9 +301,9 @@ function draw_On_Screen()
 	gpu.set(x, y, available_Fuel .. available_Fuel_Percent .. available_Fuel_In_ME)
 	y = y + 2
 
-	local waste_Percent = "Waste: " .. calculated_Data["waste_Percent"] .. "%"
-	gpu.set(x, y, waste_Percent)
-	y = y + 2	
+	--local waste_Percent = "Waste: " .. calculated_Data["waste_Percent"] .. "%"
+	--gpu.set(x, y, waste_Percent)
+	--y = y + 2	
 	
 	local reactor_Consumption = "Fuel Consume: " .. calculated_Data["fuel_Consume"] .. " Ingot / min"
 	gpu.set(x, y, reactor_Consumption)
@@ -292,9 +323,9 @@ function draw_On_Screen()
 		y = y + 2
 	end
 
-	--local last_Time_On = "Reactor Last ON: " .. calculated_Data["last_On_Time"] .. calculated_Data["last_On_Suffix"]
-	--gpu.set(x, y, last_Time_On)
-	--y = y + 2
+	local last_Time_On = "Reactor Last ON: " .. calculated_Data["last_On_Time"] .. calculated_Data["last_On_Suffix"]
+	gpu.set(x, y, last_Time_On)
+	y = y + 2
 	
 	if raw_Data["reactor_State"] == "on" then
 		gpu.setForeground(0x00ff00)
@@ -314,13 +345,14 @@ end
 
 
 function resolution_Calculation()
-	local x, y = 52, 15
+	raw_Data["display_Resolution"]["x"] = 52
+	raw_Data["display_Resolution"]["y"] = 15
 
 	if display_Settings["EIO_Capacitor_Support"] then
-		y = y + 2
+		raw_Data["display_Resolution"]["y"] = raw_Data["display_Resolution"]["y"] + 2
 	end
 	
-	gpu.setResolution(x, y)
+	gpu.setResolution(raw_Data["display_Resolution"]["x"], raw_Data["display_Resolution"]["y"])
 end
 
 
@@ -333,6 +365,9 @@ term.clear()
 
 while true do
 	data_Collector()
-	draw_On_Screen()
+
+	if raw_Data["reactor_Available"] then
+		draw_On_Screen()
+	end
 	os.sleep(1)
 end
