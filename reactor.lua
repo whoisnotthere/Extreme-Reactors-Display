@@ -90,6 +90,13 @@ local calculated_Data = {
 
 
 
+function math_Round(val, idp)
+	local exp = 10^(idp or 0)
+	return math.floor(val * exp + 0.5) / exp
+  end
+
+
+
 function support_Check()
 	if display_Settings["ME_Storage_Support"] and not me_controller then
 		print("ME Controller is not connected. ME Support turned Off.")
@@ -144,7 +151,7 @@ function reactor_Control()
 		
 		if raw_Data["reactor_Fuel_Info"]["fuelAmount"] > 0 then
 			if display_Settings["reactor_Control"] then
-				if calculated_Data["energy_Percent"] >= display_Settings["reactor_Percent_Off"] then
+				if calculated_Data["energy_Percent"] >= (display_Settings["reactor_Percent_Off"] - 1) then
 					reactor.setActive(false)
 				elseif calculated_Data["energy_Percent"] <= display_Settings["reactor_Percent_Off"] - display_Settings["reactor_Percent_Hysteresis"] then
 					reactor.setActive(true)
@@ -261,10 +268,10 @@ function data_Calculation()
 	end
 	
 	if raw_Data["reactor_Energy_Info"]["energyProducedLastTick"] > 1000 then
-		calculated_Data["energy_Generation"] = math.floor(raw_Data["reactor_Energy_Info"]["energyProducedLastTick"] / 1000)
+		calculated_Data["energy_Generation"] = math_Round(raw_Data["reactor_Energy_Info"]["energyProducedLastTick"] / 1000, 2)
 		calculated_Data["energy_Suffix"] = " kRF/t"
 	else
-		calculated_Data["energy_Generation"] = math.floor(raw_Data["reactor_Energy_Info"]["energyProducedLastTick"])
+		calculated_Data["energy_Generation"] = math_Round(raw_Data["reactor_Energy_Info"]["energyProducedLastTick"], 2)
 		calculated_Data["energy_Suffix"] = " RF/t"
 	end
 	
